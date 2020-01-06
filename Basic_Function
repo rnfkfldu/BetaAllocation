@@ -1,0 +1,111 @@
+#2. 기본 함수 정의
+#2.1 MA 
+def Add_MA(data,num_days):
+    field_name=f"{num_days}MovingAverage"
+    data[field_name] = data["End"].rolling(num_days, center=True).mean()
+
+#2.2 MA 차이 구하기
+def Delta_MA_Percent(data, num_days_1, num_days_2):
+    field_name_1=f"{num_days_1}MovingAverage"
+    field_name_2=f"{num_days_2}MovingAverage"
+    data['Delta_MovingAverage'] = (data[field_name_1] - data[field_name_2]) / data[field_name_1] *100
+
+#2.3 VaR 구하기
+def Calculate_VaR(data, num_days, confidence):
+    Daily_Yield = data['End'][:num_days].pct_change()
+    VaR = round((Daily_Yield.quantile(1-confidence/100))*100, 2)
+   
+    return VaR
+    
+#2.4 Beta 구하기
+def Calculate_Beta(data, BM, num_days):
+    data['End_1'] = data['End'].shift(-1)
+    data['Daily_Return'] = np.log(data['End'] / data['End_1'])
+
+    BM['End_1'] = BM['End'].shift(-1)
+    BM['Daily_Return'] = np.log(BM['End'] / BM['End_1'])
+
+    std_data = data['Daily_Return'][:num_days].std()
+    std_BM = BM['Daily_Return'][:num_days].std()
+
+    corr_matrix = {'Stock' : data['Daily_Return'][:num_days], 'Benchmark' : BM['Daily_Return'][:num_days]}
+    corr_matrix = pd.DataFrame(corr_matrix)
+    correlation = corr_matrix.corr()
+    corr_coeff = correlation['Benchmark']['Stock']
+    beta = round(corr_coeff * std_data / std_BM, 2)
+    
+    return beta
+
+#2.5 Stock Position 구하기
+def Calculate_StockPosition (Trading_format, date_index):
+    Trading_format = Trading_format[:5]
+    A = np.array(Trading_format.index)
+    B = np.array(Trading_format['Code'])
+    C = np.array(Trading_format['Title'])
+    Sliced_Trading_format = [A, B, C]
+    Sliced_Trading_format = pd.DataFrame(Sliced_Trading_format)
+    Sliced_Trading_format = Sliced_Trading_format.T.values
+
+    StockPosition = 0
+    for index, code, title in Sliced_Trading_format:
+        data_stock = pd.read_csv(f'stock_A{code}_{title}.csv', index_col=0, encoding='utf-8')
+        Stock_Number = math.floor(Trading_format['Position'][index] / data_stock['End'][date_index])
+        SingleStockPosition = data_stock['End'][date_index] * Stock_Number
+        StockPosition = StockPosition + SingleStockPosition
+        
+    return StockPosition
+
+def Liquidate_StockPosition (Trading_format, date_index):
+    Trading_format = Trading_format[:5]
+    A = np.array(Trading_format.index)
+    B = np.array(Trading_format['Code'])
+    C = np.array(Trading_format['Title'])
+    Sliced_Trading_format = [A, B, C]
+    Sliced_Trading_format = pd.DataFrame(Sliced_Trading_format)
+    Sliced_Trading_format = Sliced_Trading_format.T.values
+
+    LiquidatedStockPosition = 0
+    for index, code, title in Sliced_Trading_format:
+        data_stock = pd.read_csv(f'stock_A{code}_{title}.csv', index_col=0, encoding='utf-8')
+        Stock_Number = math.floor(Trading_format['Position'][index] / data_stock['End'][date_index])
+        SingleLiquidatedStockPosition = data_stock['Start'][date_index-1] * Stock_Number
+        LiquidatedStockPosition = LiquidatedStockPosition + SingleLiquidatedStockPosition
+        
+    return LiquidatedStockPosition
+
+def Calculate_BondPosition (Trading_format, date_index):
+    Trading_format = Trading_format[5:]
+    A = np.array(Trading_format.index)
+    B = np.array(Trading_format['Code'])
+    C = np.array(Trading_format['Title'])
+    Sliced_Trading_format = [A, B, C]
+    Sliced_Trading_format = pd.DataFrame(Sliced_Trading_format)
+    Sliced_Trading_format = Sliced_Trading_format.T.values
+
+    BondPosition = 0
+    for index, code, title in Sliced_Trading_format:
+        data_bond = pd.read_csv(f'stock_A{code}_{title}.csv', index_col=0, encoding='utf-8')
+        Bond_Number = math.floor(Trading_format['Position'][index] / data_bond['End'][date_index])
+        SingleBondPosition = data_bond['End'][date_index] * Bond_Number
+        BondPosition = BondPosition + SingleBondPosition
+        
+    return BondPosition
+
+def Liquidate_BondPosition (Trading_format, date_index):
+    Trading_format = Trading_format[5:]
+    A = np.array(Trading_format.index)
+    B = np.array(Trading_format['Code'])
+    C = np.array(Trading_format['Title'])
+    Sliced_Trading_format = [A, B, C]
+    Sliced_Trading_format = pd.DataFrame(Sliced_Trading_format)
+    Sliced_Trading_format = Sliced_Trading_format.T.values
+
+    LiquidatedBondPosition = 0
+    for index, code, title in Sliced_Trading_format:
+        data_bond = pd.read_csv(f'stock_A{code}_{title}.csv', index_col=0, encoding='utf-8')
+        Bond_Number = math.floor(Trading_format['Position'][index] / data_bond['End'][date_index])
+        SingleLiquidatedBondPosition = data_bond['Start'][date_index-1] * Bond_Number
+        LiquidatedBondPosition = LiquidatedBondPosition + SingleLiquidatedBondPosition
+        
+    return LiquidatedBondPosition
+

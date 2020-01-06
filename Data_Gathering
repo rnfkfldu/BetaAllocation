@@ -1,0 +1,115 @@
+#1. Data Crawling하여 Stock Data 가져오기
+
+#1.1 종목 Code 가져오기
+MARKET_CODE_DICT = {
+    'kospi': 'stockMkt',
+    'kosdaq': 'kosdaqMkt',
+    'konex': 'konexMkt'
+}
+SEARCH_CODE_DICT = {
+    '상장법인': '13',
+    '관리종목': '01',
+    '불성실공시종목': '05',
+    'kospi200':'06',
+    'krx100':'11'
+}
+
+DOWNLOAD_URL = 'kind.krx.co.kr/corpgeneral/corpList.do'
+
+def download_stock_codes(MarketType=None, SearchType=None):
+    params = {'method': 'download'}
+
+    if MarketType.lower() in MARKET_CODE_DICT:
+        params['marketType'] = MARKET_CODE_DICT[MarketType]
+
+    if SearchType.lower() in SEARCH_CODE_DICT:
+        params['searchType'] = SEARCH_CODE_DICT[SearchType]
+
+    params_string = urllib.parse.urlencode(params)
+    request_url = urllib.parse.urlunsplit(['http', DOWNLOAD_URL, '', params_string, ''])
+
+    df = pd.read_html(request_url, header=0)[0]
+    df.종목코드 = df.종목코드.map('{:06d}'.format)
+    CodeList = df[['종목코드', '회사명']]
+
+    return CodeList
+
+#1.2 종목 Code 별 Stock Data 가져오기
+def getStockData(code, name):
+    file_name=f"stock_{code}_{name}.csv"
+    f = open(file_name, "w", encoding='utf-8', newline="")
+    csv_writer = csv.writer(f)
+    csv_writer.writerow(["Date", "Start", "High", "Low", "End", "Volume"])
+    
+    headers={
+        "referer":f"https://finance.daum.net/quotes/{code}",
+        "user-agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.79 Safari/537.36"
+    }
+    
+    for page_number in range(1,50):
+        url=f"https://finance.daum.net/api/quote/{code}/days?symbolCode={code}&page={page_number:d}&perPage=20&pagination=true"
+        data = requests.get(url, verify=False, headers=headers)
+        json_data=json.loads(data.text)
+        
+        
+        for stock in json_data["data"]:
+            csv_writer.writerow([stock['date'][:10], stock['openingPrice'], stock['highPrice'], stock['lowPrice'], stock['tradePrice'], stock['accTradeVolume']])
+    f.close()
+    return (file_name)
+
+#1.3 Benchmark 별 Data 가져오기
+
+def getBenchmarkData(market):
+    file_name=f"stock_BM_{market}.csv"
+    f = open(file_name, "w", encoding='utf-8', newline="")
+    csv_writer = csv.writer(f)
+    csv_writer.writerow(["Date", "End", "Change", "Volume", "Individual", "Foreign", "Institution"])
+    
+    headers={
+        "referer":f"https://finance.daum.net/domestic/{market}",
+        "user-agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.88 Safari/537.36"
+    }
+    
+    for page_number in range(1,50):
+        url=f"https://finance.daum.net/api/market_index/days?page={page_number:d}&perPage=20&market={market}&pagination=true"
+        data = requests.get(url, verify=False, headers=headers)
+        json_data=json.loads(data.text)
+        print(json_data)       
+        for stock in json_data["data"]:
+            csv_writer.writerow([stock['date'][:10], stock['tradePrice'], stock['change'], stock['accTradeVolume'], stock['individualStraightPurchasePrice'], stock['foreignStraightPurchasePrice'], stock['institutionStraightPurchasePrice']])
+    f.close()
+    return (file_name)
+
+ 
+
+
+
+
+
+
+
+
+
+
+
+
+CodeList = download_stock_codes(MarketType='kospi', SearchType='kospi200')
+
+
+
+
+
+
+
+
+
+
+
+New_CodeList = []
+for code, name in CodeList.values:
+    data = pd.read_csv(f'stock_A{code}_{name}.csv', index_col=0, encoding='utf-8')
+    if len(data.index) == 980:
+        SingleList = [code, name]
+        New_CodeList.append(SingleList)
+New_CodeList = pd.DataFrame(New_CodeList)        
+New_CodeList.head()
